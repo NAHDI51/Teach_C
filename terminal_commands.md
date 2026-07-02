@@ -18,7 +18,6 @@ You can delete file (or multiple files) using the command `rm filename.ext`
 rm filename.ext // delete one file
 rm one.c two.c three.c // delete multiple files
 ```
-
 ### Tracking the current location we are in the terminal
 You can do it using the command `pwd`
 ```bash
@@ -97,10 +96,68 @@ You can use the `mkdir` command
 ```
 mkdir PATH/FOLDER_NAME
 ```
+### Removing a folder
 
+You can use the command `rmdir` or `rm -rf` in order to delete the directory. Using `rm -rf` is always recommended. 
+
+```
+rm -rf PATH/FOLDER_NAME
+rmdir PATH/FOLDER_NAME
+rm --recursive --force PATH/FOLDER_NAME
+```
 
 ### Copying a file
+You can copy using the command `cp`.
+
+For copying a file, do:
+```
+cp SOURCE/FILE.ext DESTINATION/FOLDER
+```
+And for copying a folder, do:
+```
+cp -r SOURCE/FOLDER.ext DESTINATION/FOLDER
+```
+
+You can do advanced copypasting using the `regex language`. For example,
+```
+cp -r ./implementation/[a-m]*.cpp ./teaching/ds_algo
+```
+This command copies all files with name starting letter using anything between `a to m`, then having any character between, and ending with the term `.cpp`, and pastes them into the folder `./teaching/ds_algo`.
+
 ### Moving a file
+
+You can copy using the command `mv`.
+
+For copying a file, do:
+```
+mv SOURCE/FOLDER/FILE.ext/ DESTINATION/FOLDER
+```
+
+You can do advanced moving using the `regex language`. For example,
+```
+mv ./implementation/[a-m]*.cpp ./teaching/ds_algo
+```
+This command moves all files with name starting letter using anything between `a to m`, then having any character between, and ending with the term `.cpp`, and pastes them into the folder `./teaching/ds_algo`.
+
+### Printing the file contents
+You can use the command `cat` in order to print the file contents.
+```
+cat ~/programming/c_cpp/teaching/terminal_commands.md
+```
+
+### Editing in the terminal
+You can use the command `nano` in order to edit in the terminal.
+```
+nano terminal_commands.md
+```
+**Use**
+* **ctrl+s** to save
+* **ctrl+x** to exit
+
+If you don't find nano installed on your device, do
+```
+brew install nano
+```
 
 ### Clearing the terminal
 You can clear the terminal simply using the word "clear"
