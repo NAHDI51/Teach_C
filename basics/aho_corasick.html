@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aho-Corasick Interactive Visualizer</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  body { background: #0f172a; color: #f8fafc; padding: 20px; }
+  h1 { font-size: 1.4rem; margin-bottom: 15px; color: #38bdf8; text-align: center; }
+  .container { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: 340px 1fr; gap: 20px; }
+  .panel { background: #1e293b; border-radius: 10px; padding: 16px; border: 1px solid #334155; }
+  .form-group { margin-bottom: 12px; }
+  label { display: block; font-size: 0.8rem; font-weight: 600; color: #94a3b8; margin-bottom: 4px; }
+  input, select, button { width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: #f8fafc; font-size: 0.85rem; }
+  button { background: #0284c7; color: white; border: none; font-weight: 600; cursor: pointer; transition: background 0.2s; margin-top: 4px; }
+  button:hover { background: #0369a1; }
+  button.secondary { background: #334155; }
+  button.secondary:hover { background: #475569; }
+  .btn-group { display: flex; gap: 8px; }
+  .badge { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; margin-bottom: 8px; }
+  .badge-1 { background: #0284c7; color: #e0f2fe; }
+  .badge-2 { background: #d97706; color: #fef3c7; }
+  
+  .graph-container { width: 100%; height: 480px; background: #090d16; border-radius: 8px; border: 1px solid #334155; position: relative; overflow: hidden; }
+  svg { width: 100%; height: 100%; }
+  
+  .text-display { display: flex; gap: 6px; margin-top: 15px; justify-content: center; background: #0f172a; padding: 10px; border-radius: 8px; }
+  .char-box { width: 34px; height: 38px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.1rem; border: 2px solid #334155; border-radius: 6px; }
+  .char-box.active { border-color: #38bdf8; background: #0284c7; color: white; transform: scale(1.1); }
+  .char-box.processed { background: #1e293b; color: #64748b; }
+  
+  .info-box { font-family: monospace; font-size: 0.8rem; background: #0f172a; padding: 10px; border-radius: 6px; border: 1px solid #334155; margin-top: 8px; white-space: pre-wrap; color: #38bdf8; }
+  .match-tag { display: inline-block; background: #15803d; color: #dcfce7; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; margin: 2px; }
+</style>
+</head>
+<body>
+
+<h1>Aho-Corasick Interactive Visualizer</h1>
+
+<div class="container">
+  <!-- Controls Panel -->
+  <div class="panel">
+    <div class="form-group">
+      <label for="modeSelect">Select Code Instance</label>
+      <select id="modeSelect">
+        <option value="1">Instance 1: Full backp Output Chain</option>
+        <option value="2">Instance 2: Simplified Single-Winner end</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label for="patternsInput">Patterns (comma-separated)</label>
+      <input type="text" id="patternsInput" value="he, she, his, her">
+    </div>
+
+    <div class="form-group">
+      <label for="textInput">Search Text</label>
+      <input type="text" id="textInput" value="ushers">
+    </div>
+
+    <button id="buildBtn">Rebuild Automaton</button>
+
+    <hr style="border-color: #334155; margin: 12px 0;">
+
+    <div class="btn-group">
+      <button id="stepBtn" class="secondary">Step Text ➔</button>
+      <button id="resetBtn" class="secondary">Reset</button>
+    </div>
+
+    <div style="margin-top: 12px;">
+      <span id="modeBadge" class="badge badge-1">Instance 1 Mode</span>
+      <div id="statusBox" class="info-box">Ready. Click "Step Text" to traverse.</div>
+    </div>
+
+    <div style="margin-top: 12px;">
+      <label>Edge Legend</label>
+      <div style="font-size:0.75rem; color:#94a3b8; display:grid; gap:4px; margin-top:4px;">
+        <div><span style="color:#38bdf8;">━━</span> Trie Next Transition</div>
+        <div><span style="color:#f97316;">╌╌</span> Fail Link (back)</div>
+        <div><span style="color:#a855f7;">⋯⋯</span> Output Link (backp)</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Graph & Inspector -->
+  <div>
+    <div class="graph-container">
+      <svg id="svgGraph">
+        <defs>
+          <marker id="arrow-trie" viewBox="0 0 10 10" refX="22" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#38bdf8"/></marker>
+          <marker id="arrow-fail" viewBox="0 0 10 10" refX="22" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#f97316"/></marker>
+          <marker id="arrow-backp" viewBox="0 0 10 10" refX="22" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#a855f7"/></marker>
+        </defs>
+      </svg>
+    </div>
+
+    <div id="textDisplay" class="text-display"></div>
+
+    <div class="panel" style="margin-top: 12px;">
+      <label>Node State Inspector</label>
+      <div id="nodeDetails" class="info-box">Click any node in the graph or step through text to inspect variables.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+let patterns = [], text = "", currentMode = 1, currentTextIdx = -1, currentNode = 0;
+let nodes = [], backp = [];
+
+function buildAutomaton() {
+  patterns = document.getElementById('patternsInput').value.split(',').map(s => s.trim().toLowerCase()).filter(s => s.length > 0);
+  text = document.getElementById('textInput').value.trim().toLowerCase();
+  currentMode = parseInt(document.getElementById('modeSelect').value);
+  
+  document.getElementById('modeBadge').className = `badge badge-${currentMode}`;
+  document.getElementById('modeBadge').innerText = currentMode === 1 ? 'Instance 1 Mode' : 'Instance 2 Mode';
+
+  nodes = [{ id: 0, label: "ε", next: {}, back: 0, start: -1, end: -1, nmatches: 0, depth: 0 }];
+  backp = [];
+  currentTextIdx = -1;
+  currentNode = 0;
+
+  // 1. Insert patterns into Trie
+  patterns.forEach((pat, j) => {
+    let u = 0;
+    for (let char of pat) {
+      if (!(char in nodes[u].next)) {
+        let v = nodes.length;
+        nodes.push({ id: v, label: nodes[u].label === "ε" ? char : nodes[u].label + char, next: {}, back: 0, start: -1, end: -1, nmatches: 0, depth: nodes[u].depth + 1 });
+        nodes[u].next[char] = v;
+      }
+      u = nodes[u].next[char];
+    }
+    if (nodes[u].end === -1) nodes[u].start = j;
+    backp.push(nodes[u].end);
+    nodes[u].end = j;
+    nodes[u].nmatches++;
+  });
+
+  // 2. BFS Construction
+  let q = [];
+  for (let c in nodes[0].next) {
+    let v = nodes[0].next[c];
+    nodes[v].back = 0;
+    q.push(v);
+  }
+
+  while (q.length > 0) {
+    let u = q.shift();
+    let prev = nodes[u].back;
+
+    for (let c in nodes[u].next) {
+      let ed = nodes[u].next[c];
+      let y = (c in nodes[prev].next) ? nodes[prev].next[c] : 0;
+      nodes[ed].back = y;
+
+      if (currentMode === 1) {
+        // Instance 1: Full backp output chaining
+        if (nodes[ed].end === -1) {
+          nodes[ed].end = nodes[y].end;
+        } else {
+          backp[nodes[ed].start] = nodes[y].end;
+        }
+      } else {
+        // Instance 2: Single-winner end pointer
+        nodes[ed].end = (nodes[ed].end !== -1 ? nodes[ed].end : nodes[y].end);
+      }
+
+      nodes[ed].nmatches += nodes[y].nmatches;
+      q.push(ed);
+    }
+  }
+
+  calculatePositions();
+  renderText();
+  drawGraph();
+  inspectNode(0);
+  document.getElementById('statusBox').innerText = 'Automaton re-built successfully.';
+}
+
+function calculatePositions() {
+  let levels = {};
+  nodes.forEach(n => {
+    if (!levels[n.depth]) levels[n.depth] = [];
+    levels[n.depth].push(n);
+  });
+
+  const width = document.getElementById('svgGraph').clientWidth || 800;
+  const height = document.getElementById('svgGraph').clientHeight || 480;
+  const maxDepth = Math.max(...Object.keys(levels).map(Number));
+  const ySpacing = (height - 80) / Math.max(maxDepth, 1);
+
+  Object.keys(levels).forEach(d => {
+    let levelNodes = levels[d];
+    let xSpacing = width / (levelNodes.length + 1);
+    levelNodes.forEach((n, idx) => {
+      n.x = xSpacing * (idx + 1);
+      n.y = 40 + parseInt(d) * ySpacing;
+    });
+  });
+}
+
+function drawGraph() {
+  const svg = document.getElementById('svgGraph');
+  // Preserve defs
+  svg.innerHTML = svg.querySelector('defs').outerHTML;
+
+  // 1. Draw Fail Links (Dashed Orange)
+  nodes.forEach(n => {
+    if (n.id !== 0) {
+      let target = nodes[n.back];
+      drawArrow(svg, n.x, n.y, target.x, target.y, '#f97316', 'arrow-fail', '5,5');
+    }
+  });
+
+  // 2. Draw Trie Edges (Solid Blue)
+  nodes.forEach(u => {
+    for (let c in u.next) {
+      let v = nodes[u.next[c]];
+      drawArrow(svg, u.x, u.y, v.x, v.y, '#38bdf8', 'arrow-trie');
+      drawText(svg, (u.x + v.x) / 2 - 8, (u.y + v.y) / 2 - 4, c, '#38bdf8');
+    }
+  });
+
+  // 3. Draw Nodes
+  nodes.forEach(n => {
+    let circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    circle.setAttribute('cx', n.x);
+    circle.setAttribute('cy', n.y);
+    circle.setAttribute('r', '18');
+    circle.setAttribute('fill', n.id === currentNode ? '#0284c7' : '#1e293b');
+    circle.setAttribute('stroke', n.end !== -1 ? '#22c55e' : '#475569');
+    circle.setAttribute('stroke-width', n.end !== -1 ? '3' : '2');
+    circle.style.cursor = 'pointer';
+    circle.onclick = () => inspectNode(n.id);
+    svg.appendChild(circle);
+
+    let text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    text.setAttribute('x', n.x);
+    text.setAttribute('y', n.y + 4);
+    text.setAttribute('text-anchor', 'middle');
+    text.setAttribute('fill', '#f8fafc');
+    text.setAttribute('font-size', '11px');
+    text.setAttribute('font-weight', 'bold');
+    text.style.pointerEvents = 'none';
+    text.textContent = n.id;
+    svg.appendChild(text);
+  });
+}
+
+function drawArrow(svg, x1, y1, x2, y2, color, markerId, dasharray = '') {
+  let line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+  line.setAttribute('x1', x1); line.setAttribute('y1', y1);
+  line.setAttribute('x2', x2); line.setAttribute('y2', y2);
+  line.setAttribute('stroke', color);
+  line.setAttribute('stroke-width', '2');
+  if (dasharray) line.setAttribute('stroke-dasharray', dasharray);
+  if (markerId) line.setAttribute('marker-end', `url(#${markerId})`);
+  svg.appendChild(line);
+}
+
+function drawText(svg, x, y, str, color) {
+  let text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+  text.setAttribute('x', x); text.setAttribute('y', y);
+  text.setAttribute('fill', color);
+  text.setAttribute('font-size', '12px');
+  text.setAttribute('font-weight', 'bold');
+  text.textContent = str;
+  svg.appendChild(text);
+}
+
+function renderText() {
+  const container = document.getElementById('textDisplay');
+  container.innerHTML = '';
+  for (let i = 0; i < text.length; i++) {
+    let div = document.createElement('div');
+    div.className = `char-box ${i === currentTextIdx ? 'active' : (i < currentTextIdx ? 'processed' : '')}`;
+    div.textContent = text[i];
+    container.appendChild(div);
+  }
+}
+
+function stepText() {
+  if (currentTextIdx + 1 >= text.length) {
+    document.getElementById('statusBox').innerText = 'Reached end of search text.';
+    return;
+  }
+
+  currentTextIdx++;
+  let c = text[currentTextIdx];
+
+  while (currentNode > 0 && !(c in nodes[currentNode].next)) {
+    currentNode = nodes[currentNode].back;
+  }
+  if (c in nodes[currentNode].next) {
+    currentNode = nodes[currentNode].next[c];
+  }
+
+  renderText();
+  drawGraph();
+
+  let matches = [];
+  if (currentMode === 1) {
+    let ind = nodes[currentNode].end;
+    while (ind !== -1 && ind !== undefined) {
+      matches.push(`Pat ${ind} ("${patterns[ind]}")`);
+      ind = backp[ind];
+    }
+  } else {
+    if (nodes[currentNode].end !== -1) {
+      matches.push(`Direct: Pat ${nodes[currentNode].end} ("${patterns[nodes[currentNode].end]}")`);
+    }
+    let failNode = nodes[currentNode].back;
+    if (nodes[failNode].end !== -1) {
+      matches.push(`Via Fail Link: Pat ${nodes[failNode].end} ("${patterns[nodes[failNode].end]}")`);
+    }
+  }
+
+  let matchText = matches.length > 0 ? matches.join(', ') : 'None';
+  document.getElementById('statusBox').innerHTML = `Read character '${c}' ➔ Moved to Node ${currentNode} ("${nodes[currentNode].label}").<br>Matches: ${matchText}`;
+  inspectNode(currentNode);
+}
+
+function inspectNode(id) {
+  let n = nodes[id];
+  let info = `Node ID: ${n.id} ("${n.label}")\n`;
+  info += `N[${id}].back      = ${n.back} ("${nodes[n.back].label}")\n`;
+  info += `N[${id}].end       = ${n.end} ${n.end !== -1 ? '(' + patterns[n.end] + ')' : ''}\n`;
+  info += `N[${id}].start     = ${n.start}\n`;
+  info += `N[${id}].nmatches  = ${n.nmatches}\n`;
+
+  if (currentMode === 1) {
+    info += `\n--- Instance 1 Output Chain (via backp) ---\n`;
+    let ind = n.end;
+    let chain = [];
+    while (ind !== -1 && ind !== undefined) {
+      chain.push(`Pat ${ind} ("${patterns[ind]}") [backp[${ind}] = ${backp[ind]}]`);
+      ind = backp[ind];
+    }
+    info += chain.length > 0 ? chain.join('\n  └─> ') : 'No matches';
+  } else {
+    info += `\n--- Instance 2 Match Lookup ---\n`;
+    info += `Direct match (N[${id}].end) : ${n.end !== -1 ? patterns[n.end] : 'None'}\n`;
+    info += `Fail match (N[fail].end)  : ${nodes[n.back].end !== -1 ? patterns[nodes[n.back].end] : 'None'}`;
+  }
+
+  document.getElementById('nodeDetails').innerText = info;
+}
+
+document.getElementById('buildBtn').onclick = buildAutomaton;
+document.getElementById('stepBtn').onclick = stepText;
+document.getElementById('resetBtn').onclick = () => { currentTextIdx = -1; currentNode = 0; renderText(); drawGraph(); inspectNode(0); };
+document.getElementById('modeSelect').onchange = buildAutomaton;
+
+window.onload = buildAutomaton;
+</script>
+</body>
+</html>

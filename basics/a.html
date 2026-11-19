@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>SOS DP Interactive State DAG</title>
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #0f172a;
+            color: #f8fafc;
+            font-family: system-ui, -apple-system, sans-serif;
+            overflow: hidden;
+        }
+        #header {
+            padding: 12px 24px;
+            background-color: #1e293b;
+            border-bottom: 1px solid #334155;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        #network {
+            width: 100vw;
+            height: calc(100vh - 65px);
+        }
+        .legend-item {
+            display: inline-block;
+            margin-left: 15px;
+            font-size: 13px;
+        }
+        .dot {
+            height: 10px;
+            width: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 5px;
+        }
+    </style>
+</head>
+<body>
+
+<div id="header">
+    <div style="font-weight: bold; font-size: 16px;">SOS DP Layered State Transitions ($B = 3$ bits)</div>
+    <div>
+        <span class="legend-item"><span class="dot" style="background:#64748b;"></span>Base Input ($k = -1$)</span>
+        <span class="legend-item"><span class="dot" style="background:#3b82f6;"></span>Bit 0 Processed ($k = 0$)</span>
+        <span class="legend-item"><span class="dot" style="background:#8b5cf6;"></span>Bit 1 Processed ($k = 1$)</span>
+        <span class="legend-item"><span class="dot" style="background:#ec4899;"></span>Bit 2 Processed ($k = 2$)</span>
+    </div>
+</div>
+
+<div id="network"></div>
+
+<script type="text/javascript">
+    const BITS = 3;
+    const MAXM = 1 << BITS;
+
+    function toBin(val) {
+        return val.toString(2).padStart(BITS, '0');
+    }
+
+    const nodes = [];
+    const edges = [];
+
+    const layerColors = ["#64748b", "#3b82f6", "#8b5cf6", "#ec4899"];
+
+    // 1. Create Nodes
+    for (let k = -1; k < BITS; k++) {
+        for (let mask = 0; mask < MAXM; mask++) {
+            const nodeId = `k${k}_m${mask}`;
+            let label = `dp[${toBin(mask)}]`;
+            let title = `Layer k = ${k}<br>Mask: ${toBin(mask)} (${mask})`;
+
+            if (k === -1) {
+                label = `A[${toBin(mask)}]`;
+                title = `Base array element: A[${toBin(mask)}]`;
+            } else {
+                title += `<br>Bit ${k} evaluated.`;
+            }
+
+            nodes.push({
+                id: nodeId,
+                label: label,
+                level: k + 1,
+                shape: 'box',
+                margin: 10,
+                color: {
+                    background: layerColors[k + 1],
+                    border: '#f8fafc',
+                    highlight: { background: '#f59e0b', border: '#ffffff' }
+                },
+                font: { color: '#ffffff', face: 'monospace', size: 14 },
+                title: title
+            });
+        }
+    }
+
+    // 2. Create Transitions (Edges)
+    for (let k = 0; k < BITS; k++) {
+        for (let mask = 0; mask < MAXM; mask++) {
+            const currId = `k${k}_m${mask}`;
+            const prevSameId = `k${k-1}_m${mask}`;
+
+            // State always inherits from its own mask in the previous bit layer
+            edges.push({
+                from: prevSameId,
+                to: currId,
+                arrows: 'to',
+                color: { color: '#475569', highlight: '#f59e0b' },
+                width: 1.5
+            });
+
+            // If bit k is set in mask, it also merges state from (mask ^ (1 << k))
+            if (mask & (1 << k)) {
+                const subMask = mask ^ (1 << k);
+                const prevSubId = `k${k-1}_m${subMask}`;
+                
+                edges.push({
+                    from: prevSubId,
+                    to: currId,
+                    arrows: 'to',
+                    color: { color: '#38bdf8', highlight: '#f59e0b' },
+                    width: 2.5,
+                    dashes: true
+                });
+            }
+        }
+    }
+
+    const container = document.getElementById('network');
+    const data = {
+        nodes: new vis.DataSet(nodes),
+        edges: new vis.DataSet(edges)
+    };
+
+    const options = {
+        layout: {
+            hierarchical: {
+                direction: 'UD',
+                sortMethod: 'directed',
+                levelSeparation: 110,
+                nodeSpacing: 100
+            }
+        },
+        physics: false,
+        interaction: {
+            hover: true,
+            navigationButtons: true,
+            tooltipDelay: 100
+        }
+    };
+
+    const network = new vis.Network(container, data, options);
+
+    // Dynamic Highlighting on click
+    network.on("click", function (params) {
+        if (params.nodes.length > 0) {
+            const selectedNode = params.nodes[0];
+            const connectedNodes = network.getConnectedNodes(selectedNode);
+            const connectedEdges = network.getConnectedEdges(selectedNode);
+
+            // Highlight dependencies
+            data.nodes.forEach(node => {
+                if (node.id === selectedNode) {
+                    data.nodes.update({id: node.id, color: {background: '#f59e0b'}});
+                } else if (connectedNodes.includes(node.id)) {
+                    data.nodes.update({id: node.id, color: {background: '#10b981'}});
+                } else {
+                    data.nodes.update({id: node.id, color: {background: '#334155'}});
+                }
+            });
+        } else {
+            // Reset colors
+            nodes.forEach(node => {
+                const k = parseInt(node.id.split('_')[0].replace('k', ''));
+                data.nodes.update({id: node.id, color: {background: layerColors[k + 1]}});
+            });
+        }
+    });
+</script>
+</body>
+</html>
