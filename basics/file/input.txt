@@ -1,1 +1,3 @@
-50 asd
+100.5 50 asd c 
+90.67 8 bcd d
+// fscanf(fp, "%lf %d %s %c", &d, &i, s, &c);

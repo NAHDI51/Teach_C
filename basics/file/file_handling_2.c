@@ -31,15 +31,17 @@ int main() {
   // fgetc, fputc // gets a single char/ puts a single char
   // fgets, fputs // gets a single string/ puts a single string
 
-  ch = fgetc(fp);
+  // ch = fgetc(fp);
   while(ch != EOF) {
     fputc(ch, stdout); // standard input
     ch = fgetc(fp);
   }
 
-  char buffer[512];
-  while(fgets(buffer, 512, fp) != NULL) {
+  // 512 -> 2^9 (standard buffer size)
+  char buffer[10];
+  while(fgets(buffer, 10, fp) != NULL) {
     fputs(buffer, stdout);
+    printf("\n");
   }
 
   fclose(fp);
